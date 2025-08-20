@@ -1,4 +1,4 @@
-# x86bootloader
+# VBB, the Very Basic Bootloader
 Some experimentation with making an x86 bootloader, built upon [Nir Lichtman's own tutorial](https://www.youtube.com/watch?v=xFrMXzKCXIc).
 
 # dependencies
@@ -33,3 +33,6 @@ Prints text to the screen and halts. Das it lol.
 Colour output for text is not working which is odd, and maybe an issue with `vncviewer` or Qemu; unsure. 
 
 Next steps are to get some user interaction going; some user input maybe to shutdown on a key press for instance.
+
+# showcase
+![VBB in action ye](https://github.com/nubbsterr/vbb/blob/main/images/vbb1-0.png)

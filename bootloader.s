@@ -17,7 +17,7 @@ print:
 hlt ; stop executing instructions, more efficient than infinite loop
 
 message:
-    db "x86 bootloader frfr", 0 
+    db "Welcome to VBB, the Vey Basic Bootloader.", 0 
 
 times 510 - ($ - $$) db 0; nasm command to fill remaining space with 0s to fill 512B sector, subtract from 510 since following line uses another 2 bytes for signature   
 dw 0xAA55 ; magic number at the end of the bootloader to define the end of its instructions
