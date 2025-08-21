@@ -28,11 +28,8 @@ vncviewer localhost:0
 Note that the port may differ if you supply the `-vnc` flag and modify the hosting port.
 
 # current functions
-Prints text to the screen and halts. Das it lol. 
+Prints text to the screen in real/protected mode and halts. Das it lol. 
 
-Colour output for text is not working which is odd, and maybe an issue with `vncviewer` or Qemu; unsure. 
-
-Next steps are to get some user interaction going; some user input maybe to shutdown on a key press for instance.
-
+Next steps are actually getting a kernel going w/ it. Daedalus is goated indeed.
 # showcase
-![VBB in action ye](https://github.com/nubbsterr/vbb/blob/main/images/vbb1-0.png)
+![VBB in action ye](https://github.com/nubbsterr/vbb/blob/main/images/vbb2-0.png)
