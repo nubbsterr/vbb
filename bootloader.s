@@ -4,22 +4,51 @@
 bits 16         ; bootloaer runs in 16-bit real mode; basically a minimal amount of space to load the initial bootloader code (512B in size)
 org 0x7c00      ; bootloader code gets loaded from this address, all instructions hereafter will be relative to this address so the bootloader code runs properly
 
-xor si, si      ; counter for a loop we'll use to print characters to screen through teletype mode
-mov ah, 0x0E    ; teletype mode to print text 
-xor bh, bh      ; set page number to 0x00 to print text to the screen 
+KERNEL_LOCATION equ 0x1000 ; arbitrary location for kernel, security down the drain cuz no KASLR lol 
+BOOT_DISK: db 0            ; disk bootloader is loaded from is stored in dl register, see findkernel label
+mov [BOOT_DISK], dl        ; save drive # to later use in int 0x13
 
-welcome: 
-    mov al, [message + si]     ; message to print + null terminator, referencing the character at address of msg+counter
-    int 0x10                   ; bios interrupt to print characters
-    inc si                     ; shift pointer to next character
-    cmp byte [message + si], 0 ; stop once null terminator is found in string
-    jne welcome                ; repeat until everything gets printed 
+; offsets of each segment descriptor to GDT
+CODE_SEGMENT equ code_descriptor - GDT_Start
+DATA_SEGMENT equ data_descriptor - GDT_Start
+
+prepstack:
+    xor ax, ax
+    mov es, ax
+    mov ds, ax
+    mov bp, 0x8000  ; starting point for bp
+    mov sp, bp      ; sp and bp start at the same place in memory initially, until push/pop is used, then sp starts moving
+
+findkernel:
+    ; read same disk of bootloader, stored in dl to retrieve kernel code, info on interrupt 0x13: https://stanislavs.org/helppc/int_13-2.html
+    ; read 0th head/cylinder and 10 sectors to find ALL of kernel code
+    mov ah, 2
+    mov al, 10
+    xor ch, ch              
+    mov cl, 2               ; read from 2nd sector, after first sector read for bootloader
+    xor dh, dh              
+    mov dl, [BOOT_DISK]     ; read from same disk booted from
+    mov bx, KERNEL_LOCATION ; load sector to kernel location; the stuff we read is our kernel code
+    int 0x13
+    ; clear screen by swapping text mode, see https://stanislavs.org/helppc/int_10-0.html
+    xor ah, ah
+    mov al, 0x3
+    int 0x10
+    jc findkernelfailure    ; if error occurs during interrupt
+    jnc protectedmodeprep
+    
+findkernelfailure:
+    mov ah, 0x0E               ; teletype mode to print text 
+    xor bh, bh                 ; set page number to 0x00 to print text to the screen 
+    mov al, 'K'                ; Failed to find kernel "message" lol
+    int 0x10                   
+    jmp exit
 
 protectedmodeprep:
     cli                                  ; clear/disable interrupts since we can't use them in protected mode
     lgdt [GDT_Descriptor] 
     ; cr0 needs to be set to 1 now, logical OR against cr0 will do so
-    ; can also now use 32-bit subregisters
+    ; can now use 32-bit subregisters
     mov eax, cr0
     or eax, 1
     mov cr0, eax                         ; congrats we are now in protected mode
@@ -28,19 +57,24 @@ protectedmodeprep:
 ; now officially switch to 32-bit mode
 bits 32
 startprotectedmode:
-    ; firstly need to setup segment registers to operate in protected mode, otherwise there may be protection faults
+    ; firstly need to setup registers to operate in protected mode, otherwise there may be protection faults
     mov ax, DATA_SEGMENT
     mov ds, ax
     mov es, ax 
+    mov ss, ax
+    mov fs, ax
+    mov gs, ax
+    mov ebp, 0x90000
+    mov esp, ebp
     ; now print stuff to screen through VIDOE MEMORY, starting at 0xb8000, first byte is text, second is colour
-    mov ebx, 0xb8000+1440       ; start of video memory + after initial welcome message, increment to print welcome message
-    mov esi, protectedmessage   ; address to later reference for characters to print!
+    mov ebx, 0xb8000            
+    mov esi, protectedmessage   
     mov ah, 0x1F                ; blue on white background, reference: https://wiki.osdev.org/Text_UI#Colours
 
 welcomeprotected:
     mov al, [esi]      ; load character from message
     cmp byte [esi], 0  ; check for null termination  
-    je exit
+    je exit            ; would be KERNEL_LOCATION and not exit if cross-compiled but this is for funsies
     mov [ebx], ax      ; print the character to screen
     inc esi            ; shift to next character
     add ebx, 2         ; skip two bytes over to print next character to video memory
@@ -78,12 +112,8 @@ GDT_Descriptor:
     dw GDT_End - GDT_Start - 1 ; size of GDT
     dd GDT_Start               ; pointer to GDT
 
-; offsets of each segment descriptor to GDT
-CODE_SEGMENT equ code_descriptor - GDT_Start
-DATA_SEGMENT equ data_descriptor - GDT_Start
-
-message:
-    db "Welcome to VBB, the Vey Basic Bootloader.", 0x0a, 0 ; 0x0a is a newline character
+onFindKernelFailure:
+    db "Failed to find kernel.", 0
 
 protectedmessage:
     db "VBB is now in protected mode!", 0
